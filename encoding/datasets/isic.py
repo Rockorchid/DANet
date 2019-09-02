@@ -66,7 +66,7 @@ class IsicSegmentation(BaseDataset):
 
     def _mask_transform(self, mask):
         target = np.array(mask).astype('int32')
-        target[target == 255] = -1
+        target[target == 255] = 1
         return torch.from_numpy(target).long()
 
     def __len__(self):

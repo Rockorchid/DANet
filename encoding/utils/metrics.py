@@ -11,12 +11,69 @@
 import numpy as np
 import torch
 
+
+class Metrics():
+
+    def __init__(self, n_classes=2):
+        self.n_classes = n_classes
+        self.confusion_matrix = np.zeros((n_classes, n_classes))
+
+    def _fast_hist(self, label_true, label_pred, n_class):
+        mask = (label_true >= 0) & (label_true < n_class)
+        hist = np.bincount(
+            n_class * label_true[mask].astype(int) +
+            label_pred[mask], minlength=n_class * 2).reshape(n_class, n_class)
+        return hist
+
+    def update(self, label_trues, label_preds):
+        for lt, lp in zip(label_trues, label_preds):
+            self.confusion_matrix += self._fast_hist(lt.flatten(),
+                                                     lp.flatten(),
+                                                     self.n_classes)
+
+    def get_scores(self):
+        """Returns accuracy score evaluation result.
+            - overall accuracy
+            - mean accuracy
+            - mean IU
+            - fwavacc
+        """
+        hist = self.confusion_matrix
+        acc = np.diag(hist).sum() / hist.sum()
+        acc_cls = np.diag(hist) / hist.sum(axis=1)
+        acc_row = np.diag(hist) / hist.sum(axis=0)
+        acc_mean = np.nanmean(acc_cls)
+        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        DI = 2 * np.diag(hist)[1] / (2 * np.diag(hist)[1] + hist[0][1] + hist[1][0])
+        mean_iu = np.nanmean(iu)
+        #        freq = hist.sum(axis=1) / hist.sum()
+        #        fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+        cls_iu = dict(zip(range(self.n_classes), iu))
+
+        return {'PAcc: \t': acc,
+                'MAcc : \t': acc_mean,
+                'TPR : \t': acc_cls[1],
+                'TNR : \t': acc_cls[0],
+                'FPR : \t': 1 - acc_cls[0],
+                'PPV : \t': acc_row[1],
+                'NPV : \t': acc_row[0],
+                #                'FreqW Acc : \t': fwavacc,
+                'MIoU : \t': mean_iu,
+                'PIou : \t': cls_iu[1],
+                'NIou : \t': cls_iu[0],
+                'DI :  \t': DI}
+
+    def reset(self):
+        self.confusion_matrix = np.zeros((self.n_classes, self.n_classes))
+
+
 def batch_pix_accuracy(predict, target):
     """Batch Pixel Accuracy
     Args:
         predict: input 4D tensor
         target: label 3D tensor
     """
+    # import ipdb;ipdb.set_trace()
     _, predict = torch.max(predict, 1)
     predict = predict.cpu().numpy() + 1
     target = target.cpu().numpy() + 1

@@ -145,37 +145,51 @@ class Trainer():
 
 
     def validation(self, epoch):
+
         # Fast test during the training
-        def eval_batch(model, image, target):
-            outputs = model(image)
-            outputs = gather(outputs, 0, dim=0)
-            pred = outputs[0]
-            import ipdb;ipdb.set_trace()
-            target = target.cuda()
-            correct, labeled = utils.batch_pix_accuracy(pred.data, target)
-            inter, union = utils.batch_intersection_union(pred.data, target, self.nclass)
-            return correct, labeled, inter, union
+        # def eval_batch(model, image, target):
+        #     outputs = model(image)
+        #     # import ipdb;ipdb.set_trace()
+        #     # outputs = gather(outputs, 0, dim=0)
+        #     pred = outputs[0]
+        #     # import ipdb;ipdb.set_trace()
+        #     target = target.cuda()
+        #     correct, labeled = (pred.data, target)
+        #     # import ipdb;ipdb.set_trace()
+        #     inter, union = utils.batch_intersection_union(pred.data, target, self.nclass)
+        #     return correct, labeled, inter, union
 
         is_best = False
+        #setup metrics
+        metrics = utils.metrics.Metrics()
         self.model.eval()
-        total_inter, total_union, total_correct, total_label = 0, 0, 0, 0
+        # total_inter, total_union, total_correct, total_label = 0, 0, 0, 0
         tbar = tqdm(self.valloader, desc='\r')
 
         for i, (image, target) in enumerate(tbar):
-            if torch_ver == "0.3":
-                image = Variable(image, volatile=True)
-                correct, labeled, inter, union = eval_batch(self.model, image, target)
-            else:
-                with torch.no_grad():
-                    correct, labeled, inter, union = eval_batch(self.model, image, target)
-
-            total_correct += correct
-            total_label += labeled
-            total_inter += inter
-            total_union += union
-            pixAcc = 1.0 * total_correct / (np.spacing(1) + total_label)
-            IoU = 1.0 * total_inter / (np.spacing(1) + total_union)
-            mIoU = IoU.mean()
+            # import ipdb;ipdb.set_trace()
+            # if torch_ver == "0.3":
+            #     image = Variable(image, volatile=True)
+            #     correct, labeled, inter, union = eval_batch(self.model, image, target)
+            # else:
+            #     with torch.no_grad():
+            #         correct, labeled, inter, union = eval_batch(self.model, image, target)
+            #
+            # total_correct += correct
+            # total_label += labeled
+            # total_inter += inter
+            # total_union += union
+            # pixAcc = 1.0 * total_correct / (np.spacing(1) + total_label)
+            # IoU = 1.0 * total_inter / (np.spacing(1) + total_union)
+            # mIoU = IoU.mean()
+            outputs = self.model(image)
+            _, predict = torch.max(outputs[0].data,1)
+            predict = predict.cpu().numpy()
+            target = target.data.cpu().numpy()
+            metrics.update(target,predict)
+            score = metrics.get_scores()
+            pixAcc = score['PAcc: \t']
+            mIoU = score['MIoU : \t']
             tbar.set_description(
                 'pixAcc: %.3f, mIoU: %.3f' % (pixAcc, mIoU))
         self.logger.info('pixAcc: %.3f, mIoU: %.3f' % (pixAcc, mIoU))
@@ -199,6 +213,6 @@ if __name__ == "__main__":
     trainer.logger.info(['Total Epoches:', str(args.epochs)])
 
     for epoch in range(args.start_epoch, args.epochs):
-        # trainer.training(epoch)
+        trainer.training(epoch)
         if not args.no_val:
             trainer.validation(epoch)
