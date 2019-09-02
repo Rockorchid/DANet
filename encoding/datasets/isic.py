@@ -83,7 +83,7 @@ def _get_isic_pairs(folder, split='train'):
     mask_paths = []
     imglist = os.listdir(os.path.join(folder,split))
     for img in imglist:
-        if img.split('.'[-1]) == 'jpg':
+        if img.split('.')[-1] == 'jpg':
             imgpath = os.path.join(folder,split,img)
             maskpath = os.path.join(folder,split+'_mask',img.split('.')[0]+'_segmentation.png')
             img_paths.append(imgpath)

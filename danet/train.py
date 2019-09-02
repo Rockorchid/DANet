@@ -10,12 +10,12 @@ import numpy as np
 from tqdm import tqdm
 
 import torch
+import torch.nn as nn
 from torch.utils import data
 import torchvision.transforms as transform
 from torch.nn.parallel.scatter_gather import gather
 
 import encoding.utils as utils
-from encoding.nn import SegmentationLosses,BatchNorm2d
 from encoding.nn import SegmentationMultiLosses
 from encoding.parallel import DataParallelModel, DataParallelCriterion
 from encoding.datasets import get_segmentation_dataset
@@ -58,7 +58,7 @@ class Trainer():
         model = get_segmentation_model(args.model, dataset=args.dataset,
                                        backbone=args.backbone,
                                        aux=args.aux, se_loss=args.se_loss,
-                                       norm_layer=BatchNorm2d,
+                                       norm_layer=nn.BatchNorm2d,
                                        base_size=args.base_size, crop_size=args.crop_size,
                                        multi_grid=args.multi_grid,
                                        multi_dilation=args.multi_dilation)
@@ -150,6 +150,7 @@ class Trainer():
             outputs = model(image)
             outputs = gather(outputs, 0, dim=0)
             pred = outputs[0]
+            import ipdb;ipdb.set_trace()
             target = target.cuda()
             correct, labeled = utils.batch_pix_accuracy(pred.data, target)
             inter, union = utils.batch_intersection_union(pred.data, target, self.nclass)
@@ -198,6 +199,6 @@ if __name__ == "__main__":
     trainer.logger.info(['Total Epoches:', str(args.epochs)])
 
     for epoch in range(args.start_epoch, args.epochs):
-        trainer.training(epoch)
+        # trainer.training(epoch)
         if not args.no_val:
             trainer.validation(epoch)
