@@ -25,9 +25,9 @@ class Options():
                             $(HOME)/data)')
         parser.add_argument('--workers', type=int, default=16,
                             metavar='N', help='dataloader threads')
-        parser.add_argument('--base-size', type=int, default=608,
+        parser.add_argument('--base-size', type=int, default=512,
                             help='base image size')
-        parser.add_argument('--crop-size', type=int, default=576,
+        parser.add_argument('--crop-size', type=int, default=512,
                             help='crop image size')
         # training hyper params
 
@@ -62,7 +62,7 @@ class Options():
         parser.add_argument('--seed', type=int, default=1, metavar='S',
                             help='random seed (default: 1)')
         parser.add_argument('--log-root', type=str,
-                            default='./cityscapes/log', help='set a log path folder')
+                            default='./isic/log', help='set a log path folder')
 
         # checking point
         parser.add_argument('--resume', type=str, default=None,
@@ -115,6 +115,7 @@ class Options():
                 'pcontext': 80,
                 'ade20k': 160,
                 'cityscapes': 180,
+                'isic': 50
             }
             args.epochs = epoches[args.dataset.lower()]
         if args.batch_size is None:
@@ -128,6 +129,7 @@ class Options():
                 'pcontext': 0.001,
                 'ade20k': 0.01,
                 'cityscapes': 0.01,
+                'isic' : 0.01
             }
             args.lr = lrs[args.dataset.lower()] / 8 * args.batch_size
         return args

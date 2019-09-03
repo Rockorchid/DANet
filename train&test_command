@@ -1,0 +1,4 @@
+train_config:
+--dataset isic --model danet --backbone resnet101 --checkname danet101 --epochs 41 --batch-size 8 --lr 0.003 --base-size 256 --crop-size 224 --multi-dilation 4 8 16
+test_config:
+--dataset isic --model danet --backbone resnet50 --checkname danet50 --resume-dir isic/danet_model/danet50 --base-size 256 --crop-size 224 --multi-dilation 4 8 16

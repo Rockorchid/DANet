@@ -9,13 +9,12 @@ import numpy as np
 from tqdm import tqdm
 
 import torch
+import torch.nn as nn
 from torch.utils import data
 import torchvision.transforms as transform
 from torch.nn.parallel.scatter_gather import gather
 
 import encoding.utils as utils
-from encoding.nn import SegmentationLosses, BatchNorm2d
-from encoding.parallel import DataParallelModel, DataParallelCriterion
 from encoding.datasets import get_segmentation_dataset, test_batchify_fn
 from encoding.models import get_model, get_segmentation_model, MultiEvalModule
 
@@ -26,7 +25,7 @@ if torch_ver == '0.3':
 
 def test(args):
     # output folder
-    outdir = '%s/danet_vis'%(args.dataset)
+    outdir = '%s/danet_model/%s/danet_vis'%(args.dataset,args.checkname)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     # data transforms
@@ -51,7 +50,7 @@ def test(args):
     else:
         model = get_segmentation_model(args.model, dataset=args.dataset,
                                        backbone=args.backbone, aux=args.aux,
-                                       se_loss=args.se_loss, norm_layer=BatchNorm2d,
+                                       se_loss=args.se_loss, norm_layer=nn.BatchNorm2d,
                                        base_size=args.base_size, crop_size=args.crop_size,
                                        multi_grid=args.multi_grid, multi_dilation=args.multi_dilation)
         # resuming checkpoint
@@ -61,7 +60,7 @@ def test(args):
         # strict=False, so that it is compatible with old pytorch saved models
         model.load_state_dict(checkpoint['state_dict'], strict=False)
 
-    print(model)
+    # print(model)
     num_class = testset.num_class
     evaluator = MultiEvalModule(model, testset.num_class, multi_scales=args.multi_scales).cuda()
     evaluator.eval()

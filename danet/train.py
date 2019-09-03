@@ -63,7 +63,7 @@ class Trainer():
                                        multi_grid=args.multi_grid,
                                        multi_dilation=args.multi_dilation)
         #print(model)
-        self.logger.info(model)
+        # self.logger.info(model)
         # optimizer using different LR
         params_list = [{'params': model.pretrained.parameters(), 'lr': args.lr},]
         if hasattr(model, 'head'):
@@ -131,7 +131,7 @@ class Trainer():
         self.logger.info('Train loss: %.3f' % (train_loss / (i + 1)))
 
         if self.args.no_val:
-            # save checkpoint every 10 epoch
+            # save checkpoint every 5 epoch
             filename = "checkpoint_%s.pth.tar"%(epoch+1)
             is_best = False
             if epoch > 99:
@@ -146,55 +146,49 @@ class Trainer():
 
     def validation(self, epoch):
 
-        # Fast test during the training
-        # def eval_batch(model, image, target):
-        #     outputs = model(image)
-        #     # import ipdb;ipdb.set_trace()
-        #     # outputs = gather(outputs, 0, dim=0)
-        #     pred = outputs[0]
-        #     # import ipdb;ipdb.set_trace()
-        #     target = target.cuda()
-        #     correct, labeled = (pred.data, target)
-        #     # import ipdb;ipdb.set_trace()
-        #     inter, union = utils.batch_intersection_union(pred.data, target, self.nclass)
-        #     return correct, labeled, inter, union
-
         is_best = False
+        def eval_batch(model, image, target):
+            outputs = model(image)
+            # outputs = gather(outputs, 0, dim=0)
+            pred = outputs[0]
+            target = target.cuda()
+            correct, labeled = utils.batch_pix_accuracy(pred.data, target)
+            inter, union = utils.batch_intersection_union(pred.data, target, self.nclass)
+            return correct, labeled, inter, union
         #setup metrics
         metrics = utils.metrics.Metrics()
         self.model.eval()
-        # total_inter, total_union, total_correct, total_label = 0, 0, 0, 0
+        total_inter, total_union, total_correct, total_label = 0, 0, 0, 0
         tbar = tqdm(self.valloader, desc='\r')
 
         for i, (image, target) in enumerate(tbar):
-            # import ipdb;ipdb.set_trace()
-            # if torch_ver == "0.3":
-            #     image = Variable(image, volatile=True)
-            #     correct, labeled, inter, union = eval_batch(self.model, image, target)
-            # else:
-            #     with torch.no_grad():
-            #         correct, labeled, inter, union = eval_batch(self.model, image, target)
-            #
-            # total_correct += correct
-            # total_label += labeled
-            # total_inter += inter
-            # total_union += union
-            # pixAcc = 1.0 * total_correct / (np.spacing(1) + total_label)
-            # IoU = 1.0 * total_inter / (np.spacing(1) + total_union)
-            # mIoU = IoU.mean()
+            correct, labeled, inter, union = eval_batch(self.model, image, target)
+
+            total_correct += correct
+            total_label += labeled
+            total_inter += inter
+            total_union += union
+            pixAcc = 1.0 * total_correct / (np.spacing(1) + total_label)
+            IoU = 1.0 * total_inter / (np.spacing(1) + total_union)
+            mIoU = IoU.mean()
+
             outputs = self.model(image)
             _, predict = torch.max(outputs[0].data,1)
             predict = predict.cpu().numpy()
             target = target.data.cpu().numpy()
             metrics.update(target,predict)
             score = metrics.get_scores()
-            pixAcc = score['PAcc: \t']
-            mIoU = score['MIoU : \t']
+            PAcc = score['PAcc: \t']
+            TPR = score['TPR : \t']
+            TNR = score['TNR : \t']
+            JI = score['JI : \t']
+            DI = score['DI :  \t']
             tbar.set_description(
-                'pixAcc: %.3f, mIoU: %.3f' % (pixAcc, mIoU))
-        self.logger.info('pixAcc: %.3f, mIoU: %.3f' % (pixAcc, mIoU))
+                'pixAcc: %.3f, mIoU: %.3f, PAcc: %.3f, TPR: %.3f, TNR: %.3f, JI: %.3f, DI: %.3f' % (pixAcc,mIoU,PAcc,TPR,TNR,JI,DI))
+        self.logger.info('pixAcc: %.3f, mIoU: %.3f, PAcc: %.3f, TPR: %.3f, TNR: %.3f, JI: %.3f, DI: %.3f' % (pixAcc,mIoU,PAcc,TPR,TNR,JI,DI))
 
-        new_pred = (pixAcc + mIoU) / 2
+
+        new_pred = JI
         if new_pred > self.best_pred:
             is_best = True
             self.best_pred = new_pred

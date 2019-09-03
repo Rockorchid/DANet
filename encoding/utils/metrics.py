@@ -45,22 +45,23 @@ class Metrics():
         acc_mean = np.nanmean(acc_cls)
         iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
         DI = 2 * np.diag(hist)[1] / (2 * np.diag(hist)[1] + hist[0][1] + hist[1][0])
+        JI = np.diag(hist)[1] / (np.diag(hist)[1] + hist[0][1] + hist[1][0])
         mean_iu = np.nanmean(iu)
         #        freq = hist.sum(axis=1) / hist.sum()
         #        fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
         cls_iu = dict(zip(range(self.n_classes), iu))
 
         return {'PAcc: \t': acc,
-                'MAcc : \t': acc_mean,
                 'TPR : \t': acc_cls[1],
                 'TNR : \t': acc_cls[0],
-                'FPR : \t': 1 - acc_cls[0],
-                'PPV : \t': acc_row[1],
-                'NPV : \t': acc_row[0],
+                # 'FPR : \t': 1 - acc_cls[0],
+                # 'PPV : \t': acc_row[1],
+                # 'NPV : \t': acc_row[0],
                 #                'FreqW Acc : \t': fwavacc,
-                'MIoU : \t': mean_iu,
-                'PIou : \t': cls_iu[1],
-                'NIou : \t': cls_iu[0],
+                # 'MIoU : \t': mean_iu,
+                # 'PIou : \t': cls_iu[1],
+                # 'NIou : \t': cls_iu[0],
+                'JI : \t' : JI,
                 'DI :  \t': DI}
 
     def reset(self):
