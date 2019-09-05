@@ -62,8 +62,8 @@ class Trainer():
                                        base_size=args.base_size, crop_size=args.crop_size,
                                        multi_grid=args.multi_grid,
                                        multi_dilation=args.multi_dilation)
-        #print(model)
-        # self.logger.info(model)
+        print(model)
+        self.logger.info(model)
         # optimizer using different LR
         params_list = [{'params': model.pretrained.parameters(), 'lr': args.lr},]
         if hasattr(model, 'head'):

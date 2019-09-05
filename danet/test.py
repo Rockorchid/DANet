@@ -81,7 +81,7 @@ def test(args):
                 batch_label += labeled
                 batch_inter += inter
                 batch_union += union
-            return batch_correct, batch_label, batch_inter, batch_union
+            return batch_correct, batch_label, batch_inter, batch_union, output, target
         else:
             # Visualize and dump the results
             im_paths = dst
@@ -93,17 +93,18 @@ def test(args):
                 outname = os.path.splitext(impath)[0] + '.png'
                 mask.save(os.path.join(outdir, outname))
             # dummy outputs for compatible with eval mode
-            return 0, 0, 0, 0
-
+            return 0, 0, 0, 0, 0, 0
+    #setup metrics
+    metrics = utils.metrics.Metrics()
     total_inter, total_union, total_correct, total_label = \
         np.int64(0), np.int64(0), np.int64(0), np.int64(0)
     for i, (image, dst) in enumerate(tbar):
         if torch_ver == "0.3":
             image = Variable(image, volatile=True)
-            correct, labeled, inter, union = eval_batch(image, dst, evaluator, args.eval)
+            correct, labeled, inter, union, output, target = eval_batch(image, dst, evaluator, args.eval)
         else:
             with torch.no_grad():
-                correct, labeled, inter, union = eval_batch(image, dst, evaluator, args.eval)
+                correct, labeled, inter, union, output, target = eval_batch(image, dst, evaluator, args.eval)
         pixAcc, mIoU, IoU = 0, 0, 0
         if args.eval:
             total_correct += correct.astype('int64')
@@ -113,9 +114,20 @@ def test(args):
             pixAcc = np.float64(1.0) * total_correct / (np.spacing(1, dtype=np.float64) + total_label)
             IoU = np.float64(1.0) * total_inter / (np.spacing(1, dtype=np.float64) + total_union)
             mIoU = IoU.mean()
+
+            _, predict = torch.max(output.data,1)
+            predict = predict.cpu().numpy()
+            target = target.unsqueeze(0).cpu().numpy()
+            metrics.update(target,predict)
+            score = metrics.get_scores()
+            PAcc = score['PAcc: \t']
+            TPR = score['TPR : \t']
+            TNR = score['TNR : \t']
+            JI = score['JI : \t']
+            DI = score['DI :  \t']
             tbar.set_description(
-                'pixAcc: %.4f, mIoU: %.4f' % (pixAcc, mIoU))
-    return pixAcc, mIoU, IoU, num_class
+                'pixAcc: %.3f, mIoU: %.3f, PAcc: %.3f, TPR: %.3f, TNR: %.3f, JI: %.3f, DI: %.3f' % (pixAcc,mIoU,PAcc,TPR,TNR,JI,DI))
+    return pixAcc, mIoU, IoU, num_class, PAcc, TPR, TNR, JI, DI
 
 def eval_multi_models(args):
     if args.resume_dir is None or not os.path.isdir(args.resume_dir):
@@ -127,7 +139,7 @@ def eval_multi_models(args):
             if not args.eval:
                 test(args)
                 continue
-            pixAcc, mIoU, IoU, num_class = test(args)
+            pixAcc, mIoU, IoU, num_class, PAcc, TPR, TNR, JI, DI = test(args)
         
             txtfile = args.resume
             txtfile = txtfile.replace('pth.tar', 'txt')
@@ -142,8 +154,10 @@ def eval_multi_models(args):
                 fh.write("%3d: %.4f\n" %(i,IoU[i]))
             print("Mean IoU over %d classes: %.4f\n" % (num_class, mIoU))
             print("Pixel-wise Accuracy: %2.2f%%\n" % (pixAcc * 100))
+            print('pixAcc: %.3f, mIoU: %.3f, PAcc: %.3f, TPR: %.3f, TNR: %.3f, JI: %.3f, DI: %.3f' % (pixAcc,mIoU,PAcc,TPR,TNR,JI,DI))
             fh.write("Mean IoU over %d classes: %.4f\n" % (num_class, mIoU))
             fh.write("Pixel-wise Accuracy: %2.2f%%\n" % (pixAcc * 100))
+            fh.write('pixAcc: %.3f, mIoU: %.3f, PAcc: %.3f, TPR: %.3f, TNR: %.3f, JI: %.3f, DI: %.3f' % (pixAcc,mIoU,PAcc,TPR,TNR,JI,DI))
             fh.close()
     print('Evaluation is finished!!!')
 
