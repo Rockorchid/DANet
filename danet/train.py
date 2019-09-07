@@ -116,7 +116,7 @@ class Trainer():
         self.model.train()
         tbar = tqdm(self.trainloader)
 
-        for i, (image, target) in enumerate(tbar):
+        for i, (image, target, _) in enumerate(tbar):
             self.scheduler(self.optimizer, i, epoch, self.best_pred)
             self.optimizer.zero_grad()
             if torch_ver == "0.3":
@@ -161,7 +161,7 @@ class Trainer():
         total_inter, total_union, total_correct, total_label = 0, 0, 0, 0
         tbar = tqdm(self.valloader, desc='\r')
 
-        for i, (image, target) in enumerate(tbar):
+        for i, (image, target, _) in enumerate(tbar):
             correct, labeled, inter, union = eval_batch(self.model, image, target)
 
             total_correct += correct
@@ -173,7 +173,7 @@ class Trainer():
             mIoU = IoU.mean()
 
             outputs = self.model(image)
-            _, predict = torch.max(outputs[0].data,1)
+            value, predict = torch.max(outputs[0].data,1)
             predict = predict.cpu().numpy()
             target = target.data.cpu().numpy()
             metrics.update(target,predict)

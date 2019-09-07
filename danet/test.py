@@ -1,10 +1,11 @@
 ###########################################################################
 # Created by: CASIA IVA
-# Email: jliu@nlpr.ia.ac.cn 
+# Email: jliu@nlpr.ia.ac.cn
 # Copyright (c) 2018
 ###########################################################################
 
 import os
+import shutil
 import numpy as np
 from tqdm import tqdm
 
@@ -12,6 +13,8 @@ import torch
 import torch.nn as nn
 from torch.utils import data
 import torchvision.transforms as transform
+from PIL import Image
+import matplotlib.pyplot as plt
 from torch.nn.parallel.scatter_gather import gather
 
 import encoding.utils as utils
@@ -24,10 +27,15 @@ if torch_ver == '0.3':
     from torch.autograd import Variable
 
 def test(args):
+    indir = '/home/runze/codes/DANet/datasets/isic/val'
+    inmdir = '/home/runze/codes/DANet/datasets/isic/val_mask'
     # output folder
     outdir = '%s/danet_model/%s/danet_vis'%(args.dataset,args.checkname)
+    badcase_dir = '%s/danet_model/%s/badcase'%(args.dataset,args.checkname)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
+    if not os.path.exists(badcase_dir):
+        os.makedirs(badcase_dir)
     # data transforms
     input_transform = transform.Compose([
         transform.ToTensor(),
@@ -66,12 +74,12 @@ def test(args):
     evaluator.eval()
 
     tbar = tqdm(test_data)
-    def eval_batch(image, dst, evaluator, eval_mode):
+    def eval_batch(image, dst, evaluator, eval_mode, path):
         if eval_mode:
             # evaluation mode on validation set
             targets = dst
             outputs = evaluator.parallel_forward(image)
-            
+
             batch_inter, batch_union, batch_correct, batch_label = 0, 0, 0, 0
             for output, target in zip(outputs, targets):
                 correct, labeled = utils.batch_pix_accuracy(output.data.cpu(), target)
@@ -81,6 +89,33 @@ def test(args):
                 batch_label += labeled
                 batch_inter += inter
                 batch_union += union
+
+                value, predict = torch.max(output.data, 1)
+                predict = predict.cpu().numpy()
+                target = target.unsqueeze(0).cpu().numpy()
+                metrics.update(target, predict)
+                ji = metrics.get_scores()['JI : \t']
+                # print(ji)
+                soft_out = torch.nn.functional.softmax(output,dim=1)
+                prob_map = soft_out.squeeze().cpu().numpy()[1]
+                w,h = prob_map.shape
+                plt.figure(figsize=(h/100,w/100),dpi=100)
+                plt.axis('off')
+                plt.imshow(prob_map)
+                mask = utils.get_mask_pallete(predict, args.dataset)
+                badcasename = os.path.splitext(path[0])[0] + '.png'
+                prob_name = os.path.splitext(path[0])[0] + '_probability.png'
+                plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+                plt.margins(0, 0)
+                plt.savefig(os.path.join(outdir, prob_name))
+                shutil.copy(os.path.join(indir,path[0]), outdir)
+                shutil.copy(os.path.join(inmdir,path[0].split('.')[0]+'_segmentation.png'),outdir)
+                mask.save(os.path.join(outdir, badcasename))
+                if ji < 0.78:
+                    plt.savefig(os.path.join(outdir, prob_name))
+                    shutil.copy(os.path.join(indir, path[0]), badcase_dir)
+                    shutil.copy(os.path.join(inmdir, path[0].split('.')[0] + '_segmentation.png'), badcase_dir)
+                    mask.save(os.path.join(badcase_dir, badcasename))
             return batch_correct, batch_label, batch_inter, batch_union, output, target
         else:
             # Visualize and dump the results
@@ -88,6 +123,7 @@ def test(args):
             outputs = evaluator.parallel_forward(image)
             predicts = [torch.max(output, 1)[1].cpu().numpy() + testset.pred_offset
                         for output in outputs]
+
             for predict, impath in zip(predicts, im_paths):
                 mask = utils.get_mask_pallete(predict, args.dataset)
                 outname = os.path.splitext(impath)[0] + '.png'
@@ -98,13 +134,13 @@ def test(args):
     metrics = utils.metrics.Metrics()
     total_inter, total_union, total_correct, total_label = \
         np.int64(0), np.int64(0), np.int64(0), np.int64(0)
-    for i, (image, dst) in enumerate(tbar):
+    for i, (image, dst, path) in enumerate(tbar):
         if torch_ver == "0.3":
             image = Variable(image, volatile=True)
-            correct, labeled, inter, union, output, target = eval_batch(image, dst, evaluator, args.eval)
+            correct, labeled, inter, union, output, target = eval_batch(image, dst, evaluator, args.eval, path)
         else:
             with torch.no_grad():
-                correct, labeled, inter, union, output, target = eval_batch(image, dst, evaluator, args.eval)
+                correct, labeled, inter, union, output, target = eval_batch(image, dst, evaluator, args.eval, path)
         pixAcc, mIoU, IoU = 0, 0, 0
         if args.eval:
             total_correct += correct.astype('int64')
@@ -115,19 +151,9 @@ def test(args):
             IoU = np.float64(1.0) * total_inter / (np.spacing(1, dtype=np.float64) + total_union)
             mIoU = IoU.mean()
 
-            _, predict = torch.max(output.data,1)
-            predict = predict.cpu().numpy()
-            target = target.unsqueeze(0).cpu().numpy()
-            metrics.update(target,predict)
-            score = metrics.get_scores()
-            PAcc = score['PAcc: \t']
-            TPR = score['TPR : \t']
-            TNR = score['TNR : \t']
-            JI = score['JI : \t']
-            DI = score['DI :  \t']
             tbar.set_description(
-                'pixAcc: %.3f, mIoU: %.3f, PAcc: %.3f, TPR: %.3f, TNR: %.3f, JI: %.3f, DI: %.3f' % (pixAcc,mIoU,PAcc,TPR,TNR,JI,DI))
-    return pixAcc, mIoU, IoU, num_class, PAcc, TPR, TNR, JI, DI
+                'pixAcc: %.3f, mIoU: %.3f' % (pixAcc,mIoU))
+    return pixAcc, mIoU, IoU, num_class
 
 def eval_multi_models(args):
     if args.resume_dir is None or not os.path.isdir(args.resume_dir):
@@ -139,8 +165,8 @@ def eval_multi_models(args):
             if not args.eval:
                 test(args)
                 continue
-            pixAcc, mIoU, IoU, num_class, PAcc, TPR, TNR, JI, DI = test(args)
-        
+            pixAcc, mIoU, IoU, num_class = test(args)
+
             txtfile = args.resume
             txtfile = txtfile.replace('pth.tar', 'txt')
             if not args.multi_scales:
@@ -154,10 +180,8 @@ def eval_multi_models(args):
                 fh.write("%3d: %.4f\n" %(i,IoU[i]))
             print("Mean IoU over %d classes: %.4f\n" % (num_class, mIoU))
             print("Pixel-wise Accuracy: %2.2f%%\n" % (pixAcc * 100))
-            print('pixAcc: %.3f, mIoU: %.3f, PAcc: %.3f, TPR: %.3f, TNR: %.3f, JI: %.3f, DI: %.3f' % (pixAcc,mIoU,PAcc,TPR,TNR,JI,DI))
             fh.write("Mean IoU over %d classes: %.4f\n" % (num_class, mIoU))
             fh.write("Pixel-wise Accuracy: %2.2f%%\n" % (pixAcc * 100))
-            fh.write('pixAcc: %.3f, mIoU: %.3f, PAcc: %.3f, TPR: %.3f, TNR: %.3f, JI: %.3f, DI: %.3f' % (pixAcc,mIoU,PAcc,TPR,TNR,JI,DI))
             fh.close()
     print('Evaluation is finished!!!')
 
