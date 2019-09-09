@@ -115,7 +115,8 @@ class Options():
                 'pcontext': 80,
                 'ade20k': 160,
                 'cityscapes': 180,
-                'isic': 50
+                'isic': 50,
+                'inbreast': 50
             }
             args.epochs = epoches[args.dataset.lower()]
         if args.batch_size is None:
@@ -129,7 +130,8 @@ class Options():
                 'pcontext': 0.001,
                 'ade20k': 0.01,
                 'cityscapes': 0.01,
-                'isic' : 0.01
+                'isic' : 0.01,
+                'inbreast': 0.01
             }
             args.lr = lrs[args.dataset.lower()] / 8 * args.batch_size
         return args

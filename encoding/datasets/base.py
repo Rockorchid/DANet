@@ -95,7 +95,7 @@ class BaseDataset(data.Dataset):
             padh = crop_size - oh if oh < crop_size else 0
             padw = crop_size - ow if ow < crop_size else 0
             img = ImageOps.expand(img, border=(0, 0, padw, padh), fill=0)
-            mask = ImageOps.expand(mask, border=(0, 0, padw, padh), fill=255)#pad 255 for cityscapes
+            mask = ImageOps.expand(mask, border=(0, 0, padw, padh), fill=0)#pad 255 for cityscapes
         # random crop crop_size
         w, h = img.size
         x1 = random.randint(0, w - crop_size)
@@ -110,7 +110,10 @@ class BaseDataset(data.Dataset):
         return img, self._mask_transform(mask)
 
     def _mask_transform(self, mask):
-        return torch.from_numpy(np.array(mask)).long()
+        target = np.array(mask).astype('int32')
+        target[target >= 200] = 1
+        target[target < 200] = 0
+        return torch.from_numpy(target).long()
 
 
 def test_batchify_fn(data):

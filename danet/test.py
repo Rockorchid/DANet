@@ -27,8 +27,8 @@ if torch_ver == '0.3':
     from torch.autograd import Variable
 
 def test(args):
-    indir = '/home/runze/codes/DANet/datasets/isic/val'
-    inmdir = '/home/runze/codes/DANet/datasets/isic/val_mask'
+    indir = '/home/runze/codes/DANet/datasets/{}/val'.format(args.dataset)
+    inmdir = '/home/runze/codes/DANet/datasets/{}/val_mask'.format(args.dataset)
     # output folder
     outdir = '%s/danet_model/%s/danet_vis'%(args.dataset,args.checkname)
     badcase_dir = '%s/danet_model/%s/badcase'%(args.dataset,args.checkname)
