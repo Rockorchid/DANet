@@ -116,6 +116,7 @@ def test(args):
                     shutil.copy(os.path.join(indir, path[0]), badcase_dir)
                     shutil.copy(os.path.join(inmdir, path[0].split('.')[0] + '_segmentation.png'), badcase_dir)
                     mask.save(os.path.join(badcase_dir, badcasename))
+                plt.close()
             return batch_correct, batch_label, batch_inter, batch_union, output, target
         else:
             # Visualize and dump the results
@@ -150,7 +151,6 @@ def test(args):
             pixAcc = np.float64(1.0) * total_correct / (np.spacing(1, dtype=np.float64) + total_label)
             IoU = np.float64(1.0) * total_inter / (np.spacing(1, dtype=np.float64) + total_union)
             mIoU = IoU.mean()
-
             tbar.set_description(
                 'pixAcc: %.3f, mIoU: %.3f' % (pixAcc,mIoU))
     return pixAcc, mIoU, IoU, num_class

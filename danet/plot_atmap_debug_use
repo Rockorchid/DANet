@@ -1,0 +1,13 @@
+import matplotlib.pyplot as plt
+at = attention.squeeze().cpu().numpy().transpose(1,0)
+plt.figure(figsize=(1024, 1024), dpi=10)
+plt.axis('off')
+plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+plt.margins(0, 0)
+for i in range(len(at)):
+    plt.subplot(32, 32, i + 1)
+    plt.imshow(at[i].reshape(32, 32))
+    plt.xticks([])
+    plt.yticks([])
+plt.savefig()
+plt.close()

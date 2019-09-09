@@ -44,7 +44,7 @@ class DANet(BaseNet):
         imsize = x.size()[2:]
         _, _, c3, c4 = self.base_forward(x)
 
-        x = self.head(c4)
+        x= self.head(c4)
         x = list(x)
         x[0] = upsample(x[0], imsize, **self._up_kwargs)
         x[1] = upsample(x[1], imsize, **self._up_kwargs)
